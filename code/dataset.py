@@ -71,6 +71,7 @@ class FinetuneDataset(Dataset):
                         continue
 
                     x = ' '.join(x)
+                    # 添加起始位置<s>, 结束位置</s>
                     ids = tokenize(x, tokenizer, args.model_type)
                     input_ids.extend(ids)
                 except Exception:
@@ -129,28 +130,31 @@ class TokenCompletionDataset(Dataset):
                 try:
                     x = json.loads(x)
                     s = len([t for t in x if '<STR_LIT' in t])
-
+                    # 如果有太多的字符串，将不考虑这个文本
                     if s > 1024:
                         continue
 
                     x = ' '.join(x)
 
                     ids = tokenize(x, tokenizer, args.model_type)
-
+                    # ids 添加了起始位置、终止位置
                     i = 0
                     while i < len(ids):
                         sample = ids[i: i + block_size]
                         if len(sample) == block_size:
                             for j in range(block_size):
+                                # 从后往前，如果遇到了' '或者'<NUM_LIT>'跳出循环
                                 if tokenizer.convert_ids_to_tokens(sample[block_size - 1 - j])[
                                     0] == '\u0120' or tokenizer.convert_ids_to_tokens(
                                     sample[block_size - 1 - j]).startswith("<NUM_LIT"):
                                     break
+                                # 从后往前，如果碰到了终止符或开始符，跳出循环
                                 if sample[block_size - 1 - j] in [tokenizer.bos_token_id, tokenizer.eos_token_id,
                                                                   tokenizer.sep_token_id]:
                                     if sample[block_size - 1 - j] != tokenizer.bos_token_id:
                                         j -= 1
                                     break
+                            # 
                             if j == block_size - 1:
                                 if self.file_type == 'train':
                                     i = i + block_size
